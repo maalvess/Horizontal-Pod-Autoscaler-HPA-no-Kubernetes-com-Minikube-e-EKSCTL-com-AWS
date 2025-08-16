@@ -1,0 +1,74 @@
+########### PARTE 1: Introdução e pré-requisitos ###############
+
+# Instalar o Minikube no Windows (supõe-se que o Docker já está instalado) 
+choco install minikube kubernetes-cli
+
+# Iniciar o cluster minikube com 2 nós Workers
+minikube start --nodes 2 -p HPA-kubernetes --driver=docker
+
+# Verificar se o cluster está rodando
+kubectl get nodes
+
+# Confirmar que o kubectl está configurado corretamente
+kubectl version --client
+kubectl get pods -A
+
+# Confirmar papéis de cada nó 
+kubectl describe node hpa-kubernetes | findstr "Roles"
+kubectl describe node hpa-kuberentes-m02 | findstr "Roles"
+
+# Habilitar o Metrics Server no Minikube
+minikube addons enable metrics-server -p HPA-kubernetes
+
+# Verificar se o deployment foi criado e status dos pods
+kubectl get deployment metrics-server -n kube-system
+kubectl get pods -n kube-system | grep metrics-server
+
+########### Parte 2 – Implantação da aplicação de exemplo (php-apache)###############
+
+# Aplicar o manifesto YAML de um servidor apache com PHP como Service dentro do cluster kubernetes criado
+kubectl apply -f https://k8s.io/examples/application/php-apache.yaml
+
+# Conferir se o deployment e Service estão ativos
+kubectl get deployments
+kubectl get pods
+kubectl get svc
+
+# Testar o acesso a aplicação
+minikube service php-apache -p HPA-kubernetes
+
+########### Parte 3 - Criar o HPA ###############
+
+# Criar o HPA
+kubectl autoscale deployment php-apache --cpu-percent=50 --min=1 --max=10
+
+# Verificar o HPA criado
+kubectl get hpa
+
+########### Parte 4 - Aumentar a carga e observar o HPA ###############
+
+# Criar um pod gerador de carga
+kubectl run -i --tty load-generator --rm --image=busybox:1.28 --restart=Never -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://php-apache; done"
+
+# Monitorar o HPA 
+kubectl get hpa php-apache --watch
+
+# Verificar o deployment
+kubectl get deployment php-apache
+
+########### Parte 5 - Parar a geração de carga e observar a redução automática ###############
+
+# Parar o pod gerador de carga 
+Ctrl + C no terminal executando o pod load-generator
+
+# Monitorar a redução do HPA
+kubectl get hpa php-apache --watch
+
+# Verificar o deployment
+kubectl get deployment php-apache
+
+########### Parte 6 – Autoscaling com múltiplas métricas e métricas customizadas ###############
+
+# Obter YAML atual do HPA e salvar em formato autoscaling/v2
+kubectl get hpa php-apache -o yaml > C:\temp\hpa-v2.yaml
+
