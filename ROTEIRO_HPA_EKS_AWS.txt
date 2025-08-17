@@ -1,0 +1,35 @@
+########### Parte 1 - Introdução e Pré Requisitos #################
+
+# Verificar instalação de ferramentas
+aws --version
+eksctl version
+kubectl version --client
+
+# Criar o cluster EKS com nós gerenciados 
+eksctl create cluster --name my-cluster --region sa-east-1 --nodes 2 --node-type t3.medium
+
+################ Parte 2: Testando o Horizontal Pod Autoscaler (HPA) ##############
+
+# Deploy de uma aplicação de teste 
+kubectl apply -f https://k8s.io/examples/application/php-apache.yaml
+
+# Criar o Horizontal Pod Autoscaler
+kubectl autoscale deployment php-apache --cpu-percent=50 --min=1 --max=10
+
+# Verificar o hpa
+kubectl get hpa
+
+# Gerar carga na aplicação
+kubectl run -i --tty load-generator --rm --image=busybox --restart=Never -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://php-apache; done"
+
+# Monitorar o hpa
+kubectl get hpa php-apache --watch
+
+#Parar a carga e observar o scale-down
+# Para parar o gerador de carga, pressione Ctrl+C no terminal que está rodando o load-generator.
+kubectl get hpa --watch
+
+# Limpeza dos recursos do laboratório
+kubectl delete deployment.apps/php-apache service/php-apache horizontalpodautoscaler.autoscaling/php-apache
+
+# Delete do cluster EKS eksctl delete cluster --name my-cluster --region sa-east-1
